@@ -69,10 +69,12 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <h1>🔗 Nockchain Multisig Transaction Builder</h1>
-        <p className="subtitle">
-          Create, sign, and broadcast multisig transactions with confidence
-        </p>
+        <div className="header-inner">
+          <h1>🔗 Nockchain Multisig Transaction Builder</h1>
+          <p className="subtitle">
+            Create, sign, and broadcast multisig transactions with confidence
+          </p>
+        </div>
       </header>
 
       <div className="progress-indicator">

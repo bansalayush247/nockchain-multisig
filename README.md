@@ -11,6 +11,14 @@ This application allows users to:
 - Export/import partially signed transactions for collaboration
 - Validate and broadcast complete transactions
 
+## 🧰 Technology Stack
+
+- **Rust (2021)**: Core transaction logic compiled to WASM via `wasm-bindgen` / `wasm-pack`.
+- **TypeScript + React**: Frontend UI (Vite build).
+- **Serialization**: `serde` / `serde_json` (Rust) and JSON across the WASM boundary.
+- **Hashing**: `sha2` (SHA256) used for deterministic message hashing.
+- **Tooling**: `wasm-pack`, `npm`, `vite`.
+
 ## 🏗️ Architecture
 
 ### System Design
@@ -161,6 +169,39 @@ npm run dev
 
 6. **Open browser**
 Navigate to `http://localhost:5173`
+
+## ⚡ Quickstart (5-minute)
+
+1. Build Rust WASM:
+
+```bash
+cd rust-core
+wasm-pack build --target web
+cd ..
+```
+
+2. Start frontend:
+
+```bash
+cd frontend
+npm install
+ln -sf ../rust-core/pkg rust-core
+npm run dev
+```
+
+3. Open `http://localhost:5173` and create a simple transaction:
+- Add a Note (e.g. `alice treasury`, value `1000`, threshold `2`, 3 pubkeys)
+- Create outputs (recipient + change) so inputs = outputs
+- Build transaction, copy the message hash for the spend, add two signatures (manual or Iris mock), and broadcast
+
+### Common Quickstart Issues
+- `Failed to initialize WASM`: ensure `rust-core/pkg` exists and the symlink is correct:
+
+```bash
+cd rust-core && wasm-pack build --target web
+cd ../frontend && ln -sf ../rust-core/pkg rust-core
+```
+- `Total output must equal total input`: adjust outputs so they sum to inputs exactly.
 
 ## 💻 Usage
 
