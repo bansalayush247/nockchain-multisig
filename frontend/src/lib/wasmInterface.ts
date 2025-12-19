@@ -141,12 +141,75 @@ export function validateTransaction(tx: Transaction): string {
  * Export transaction to JSON string for sharing with other signers.
  */
 export function exportTransaction(tx: Transaction): string {
-  return JSON.stringify(tx, null, 2);
+  // Export a simplified JSON shape using raw strings for pubkeys/signatures
+  const exportShape = {
+    spends: tx.spends.map(spend => ({
+      note: {
+        name: spend.note.name,
+        value: spend.note.value,
+        lock: {
+          pkh: {
+            threshold: spend.note.lock.pkh.threshold,
+            pubkeys: spend.note.lock.pkh.pubkeys.map(pk => pk.value)
+          }
+        }
+      },
+      seeds: {
+        message_hash: spend.seeds.message_hash,
+        signatures: spend.seeds.signatures.map(([pk, sig]) => [pk.value, sig.value])
+      }
+    })),
+    outputs: tx.outputs.map(output => ({
+      recipient: output.recipient,
+      value: output.value,
+      lock: {
+        pkh: {
+          threshold: output.lock.pkh.threshold,
+          pubkeys: output.lock.pkh.pubkeys.map(pk => pk.value)
+        }
+      }
+    }))
+  };
+
+  return JSON.stringify(exportShape, null, 2);
 }
 
 /**
  * Import transaction from JSON string.
  */
 export function importTransaction(json: string): Transaction {
-  return deserializeTransaction(JSON.parse(json));
+  const data = JSON.parse(json);
+
+  // Accept both shapes: exported simplified strings, or the richer object shape
+  // Normalize signatures and pubkeys to the simple shape expected by deserializeTransaction
+  if (data && Array.isArray(data.spends)) {
+    const normalized = {
+      ...data,
+      spends: data.spends.map((spend: any) => ({
+        ...spend,
+        note: {
+          ...spend.note,
+          lock: {
+            pkh: {
+              threshold: spend.note?.lock?.pkh?.threshold,
+              pubkeys: (spend.note?.lock?.pkh?.pubkeys || []).map((pk: any) => (typeof pk === 'string' ? pk : pk?.value))
+            }
+          }
+        },
+        seeds: {
+          ...spend.seeds,
+          signatures: (spend.seeds?.signatures || []).map((pair: any) => {
+            const [pk, sig] = pair || [];
+            const pkVal = typeof pk === 'string' ? pk : pk?.value;
+            const sigVal = typeof sig === 'string' ? sig : sig?.value;
+            return [pkVal, sigVal];
+          })
+        }
+      }))
+    };
+
+    return deserializeTransaction(normalized);
+  }
+
+  return deserializeTransaction(data);
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Spend } from '../types/nockchain';
-import { getProvider, isWalletInstalled, UserRejectedError } from '../lib/irisProvider';
+import { getProvider, isWalletInstalled, UserRejectedError, NoAccountError, RpcError } from '../lib/irisProvider';
 
 interface SignedSpend {
   public_key: string;
@@ -17,6 +17,7 @@ interface SpendSignerProps {
 export function SpendSigner({ spend, spendIndex, onSignatureAdded }: SpendSignerProps) {
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletPkh, setWalletPkh] = useState<string | null>(null);
+  const [walletLocked, setWalletLocked] = useState<boolean>(false);
   const [signing, setSigning] = useState(false);
 
   // Track signatures from seeds
@@ -28,10 +29,19 @@ export function SpendSigner({ spend, spendIndex, onSignatureAdded }: SpendSigner
         try {
           const provider = getProvider();
           const accounts = provider.accounts;
-          setWalletConnected(accounts.length > 0);
-          setWalletPkh(accounts[0] || null);
+          // If no accounts are exposed, the wallet is likely locked
+          const connected = Array.isArray(accounts) && accounts.length > 0;
+          setWalletConnected(connected);
+          setWalletPkh(connected ? accounts[0] : null);
+          setWalletLocked(Array.isArray(accounts) && accounts.length === 0);
         } catch (err) {
           console.error('Error checking wallet:', err);
+          // If provider throws a RPC/no-account style error, mark as locked
+          if (err instanceof NoAccountError || (err instanceof RpcError && String(err).toLowerCase().includes('locked'))) {
+            setWalletLocked(true);
+            setWalletConnected(false);
+            setWalletPkh(null);
+          }
         }
       }
     };
@@ -51,6 +61,24 @@ export function SpendSigner({ spend, spendIndex, onSignatureAdded }: SpendSigner
       return () => provider.off('accountsChanged', handleAccountsChanged);
     }
   }, []);
+
+  // When walletLocked becomes true, attempt to open/connect the Iris Wallet extension
+  useEffect(() => {
+    if (!walletLocked) return;
+    (async () => {
+      try {
+        const provider = getProvider();
+        // Attempt to connect which should open the extension popup for unlocking
+        const info = await provider.connect();
+        setWalletConnected(true);
+        setWalletPkh(info.pkh || null);
+        setWalletLocked(false);
+      } catch (err) {
+        console.error('Automatic unlock/connect attempt failed:', err);
+        // keep walletLocked true so UI reflects that state; user can manually open extension
+      }
+    })();
+  }, [walletLocked]);
 
   const handleIrisWalletSign = async () => {
     if (!walletConnected) {
@@ -87,6 +115,22 @@ export function SpendSigner({ spend, spendIndex, onSignatureAdded }: SpendSigner
       console.error('Error during signing:', err);
       if (err instanceof UserRejectedError) {
         alert('❌ Signing rejected by user');
+      } else if (err instanceof NoAccountError || (err instanceof RpcError && String(err).toLowerCase().includes('locked'))) {
+        // Wallet is locked -- prompt user to unlock via the extension and offer a button
+        const shouldUnlock = confirm('Your Iris Wallet appears locked. Would you like to open the Iris Wallet to unlock?');
+        if (shouldUnlock) {
+          try {
+            const provider = getProvider();
+            const info = await provider.connect();
+            setWalletConnected(true);
+            setWalletPkh(info.pkh || null);
+            setWalletLocked(false);
+            alert('Wallet unlocked. Please retry signing.');
+          } catch (connectErr) {
+            console.error('Error while attempting to unlock/connect wallet:', connectErr);
+            alert('Failed to unlock/connect the wallet: ' + (connectErr instanceof Error ? connectErr.message : String(connectErr)));
+          }
+        }
       } else {
         alert('❌ Failed to sign: ' + (err instanceof Error ? err.message : String(err)));
       }
@@ -192,13 +236,33 @@ export function SpendSigner({ spend, spendIndex, onSignatureAdded }: SpendSigner
             </div>
           ) : (
             <div className="wallet-signing">
-              <p className="wallet-status">Wallet not connected</p>
-              <button 
-                onClick={handleConnectWallet}
-                className="btn-wallet-connect"
-              >
-                Connect Iris Wallet
-              </button>
+              {walletLocked ? (
+                <>
+                  <p className="wallet-status">Wallet appears locked. Unlock to expose accounts.</p>
+                  <button onClick={async () => {
+                    try {
+                      const provider = getProvider();
+                      const info = await provider.connect();
+                      setWalletConnected(true);
+                      setWalletPkh(info.pkh || null);
+                      setWalletLocked(false);
+                    } catch (err) {
+                      console.error('Failed to connect/unlock wallet:', err);
+                      alert('Failed to unlock/connect wallet: ' + (err instanceof Error ? err.message : String(err)));
+                    }
+                  }} className="btn-wallet-connect">Unlock Iris Wallet</button>
+                </>
+              ) : (
+                <>
+                  <p className="wallet-status">Wallet not connected</p>
+                  <button 
+                    onClick={handleConnectWallet}
+                    className="btn-wallet-connect"
+                  >
+                    Connect Iris Wallet
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

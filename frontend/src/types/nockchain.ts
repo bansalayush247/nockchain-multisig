@@ -93,16 +93,20 @@ export function deserializeTransaction(data: any): Transaction {
         lock: {
           pkh: {
             threshold: spend.note.lock.pkh.threshold,
-            pubkeys: spend.note.lock.pkh.pubkeys.map(deserializePublicKey)
+            pubkeys: (spend.note.lock.pkh.pubkeys || []).map((pk: any) =>
+              typeof pk === 'string' ? deserializePublicKey(pk) : deserializePublicKey(pk?.value)
+            )
           }
         }
       },
       seeds: {
         message_hash: spend.seeds.message_hash,
-        signatures: spend.seeds.signatures.map(([pk, sig]: [string, string]) => [
-          deserializePublicKey(pk),
-          { value: sig }
-        ])
+        signatures: (spend.seeds.signatures || []).map((pair: any) => {
+          const [pk, sig] = pair || [];
+          const pkStr = typeof pk === 'string' ? pk : pk?.value;
+          const sigStr = typeof sig === 'string' ? sig : sig?.value;
+          return [deserializePublicKey(pkStr), { value: sigStr }];
+        })
       }
     })),
     outputs: data.outputs.map((output: any) => ({

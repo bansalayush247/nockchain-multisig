@@ -22,6 +22,7 @@ export const TransactionSigner: React.FC<TransactionSignerProps> = ({
   const [isValid, setIsValid] = useState<boolean>(false);
   const [showExportImport, setShowExportImport] = useState<boolean>(false);
   const [importJson, setImportJson] = useState<string>('');
+  const [importError, setImportError] = useState<string>('');
 
   useEffect(() => {
     checkValidation();
@@ -71,14 +72,30 @@ export const TransactionSigner: React.FC<TransactionSignerProps> = ({
   };
 
   const handleImport = () => {
+    setImportError('');
+    if (!importJson || !importJson.trim()) {
+      setImportError('Please paste transaction JSON before importing.');
+      return;
+    }
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(importJson);
+    } catch (err) {
+      setImportError('Invalid JSON: ' + (err instanceof Error ? err.message : String(err)));
+      return;
+    }
+
     try {
       const imported = importTransaction(importJson);
       setTransaction(imported);
       setImportJson('');
       setShowExportImport(false);
-      alert('Transaction imported successfully!');
+      setImportError('');
+      // show a small success message (non-blocking)
+      setTimeout(() => alert('Transaction imported successfully!'), 10);
     } catch (error) {
-      alert('Error importing transaction: ' + (error instanceof Error ? error.message : String(error)));
+      setImportError('Error importing transaction: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -175,7 +192,8 @@ export const TransactionSigner: React.FC<TransactionSignerProps> = ({
                 placeholder="Paste transaction JSON here..."
                 rows={8}
               />
-              <button onClick={handleImport} className="btn-primary">
+              {importError && <div className="error" style={{margin: '0.5rem 0'}}>{importError}</div>}
+              <button onClick={handleImport} className="btn-primary" disabled={!importJson.trim()}>
                 Import
               </button>
             </div>
