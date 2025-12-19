@@ -78,9 +78,8 @@ export const TransactionSigner: React.FC<TransactionSignerProps> = ({
       return;
     }
 
-    let parsed: any;
     try {
-      parsed = JSON.parse(importJson);
+      JSON.parse(importJson);
     } catch (err) {
       setImportError('Invalid JSON: ' + (err instanceof Error ? err.message : String(err)));
       return;

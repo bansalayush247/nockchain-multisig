@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "build:wasm": "bash -lc \"curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh && cd ../rust-core && wasm-pack build --target web\"",
+    "prebuild": "npm run build:wasm",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
