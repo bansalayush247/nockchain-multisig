@@ -1,0 +1,15 @@
+{
+  "name": "nockchain_multisig",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "nockchain_multisig_bg.wasm",
+    "nockchain_multisig.js",
+    "nockchain_multisig.d.ts"
+  ],
+  "main": "nockchain_multisig.js",
+  "types": "nockchain_multisig.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

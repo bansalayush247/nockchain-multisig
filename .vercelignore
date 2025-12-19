@@ -1,0 +1,2 @@
+# Don't ignore the pre-built WASM package
+!rust-core/pkg/
